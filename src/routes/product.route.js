@@ -21,7 +21,7 @@ Productrouter.delete("/delete/:id", verifyToken, isAdmin, deleteProduct);
 
 // Search and filters
 Productrouter.get("/search", verifyToken, searchProducts);
-Productrouter.get("/:id", verifyToken, getProductById);
+Productrouter.get("/get/:id", verifyToken, getProductById);
 Productrouter.get("/category/:category", verifyToken, getProductsByCategory);
 Productrouter.get("/brand/:brand", verifyToken, getProductsByBrand);
 
