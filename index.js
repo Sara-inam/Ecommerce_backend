@@ -7,26 +7,16 @@ import app from './src/app.js';
 
 const server = express();
 
-// ✅ Allowed origins
-const allowedOrigins = [
-  "http://localhost:5176",
-  "http://localhost:5173",
-  "https://your-frontend.vercel.app"
-];
-
+// ✅ CORS setup
+// Allows all origins for development/testing.
+// Later in production, replace "*" with an array of trusted frontend URLs.
 server.use(cors({
-  origin: function(origin, callback){
-    if(!origin) return callback(null, true); // Postman or curl
-    if(allowedOrigins.indexOf(origin) === -1){
-      var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
+  origin: "*", // allow any origin
   credentials: true,
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"]
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }));
 
+// ✅ Body parser
 server.use(express.json());
 
 // ✅ Simple homepage to avoid 404
@@ -35,14 +25,19 @@ server.get("/", (req, res) => {
 });
 
 // ✅ API routes
-server.use('/api', app);
+server.use("/api", app);
 
+// ✅ Start server
 const startServer = async () => {
-  await connectdb();
-  const PORT = config.PORT;
-  server.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
-  });
+  try {
+    await connectdb();
+    const PORT = config.PORT || 5000;
+    server.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    logger.error("Failed to start server:", error);
+  }
 };
 
 startServer();
