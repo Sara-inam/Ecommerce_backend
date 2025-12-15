@@ -7,7 +7,7 @@ import app from './src/app.js';
 
 const server = express();   
 const allowedOrigins = [
-  "http://localhost:5173", // dev frontend
+  "http://localhost:5176", // dev frontend
   
 ];
 
