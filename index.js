@@ -8,7 +8,7 @@ import app from './src/app.js';
 const server = express();   
 const allowedOrigins = [
   "http://localhost:5173", // dev frontend
-  "https://ecommerce-backend-phi-rosy.vercel.app" // Cloudflare tunnel
+  
 ];
 
 server.use(cors({
