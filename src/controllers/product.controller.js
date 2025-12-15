@@ -11,12 +11,14 @@ const productCache = new NodeCache({ stdTTL: 3600 });
 // Helper: flush product cache
 const flushProductCache = () => productCache.flushAll();
 
-// Upload image to Cloudinary
-const uploadImage = async (file) => {
-  if (!file) return [];
-  const result = await cloudinary.uploader.upload(file.path, {
+// Upload image to Cloudinary (Base64)
+const uploadImage = async (imageBase64) => {
+  if (!imageBase64) return [];
+
+  const result = await cloudinary.uploader.upload(imageBase64, {
     folder: "products",
   });
+
   return [result.secure_url];
 };
 
@@ -25,7 +27,7 @@ export const createProduct = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { name, category, brand, price, quantity, description } = req.body;
+    const { name, category, brand, price, quantity, description, image } = req.body;
 
     if (!name || !category || !brand || !price || !description)
       return res.status(400).json({ message: "Missing required fields" });
@@ -36,7 +38,7 @@ export const createProduct = async (req, res) => {
     const brandDoc = await Brand.findOne({ name: brand });
     if (!brandDoc) return res.status(400).json({ message: "Brand not found" });
 
-    const images = await uploadImage(req.file);
+    const images = await uploadImage(image); // Base64 image
 
     const existing = await Product.findOne({ name }).session(session);
     if (existing) {
@@ -82,9 +84,7 @@ export const getAllProducts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const cacheKey = `allProducts-${page}-${limit}`;
-    if (productCache.has(cacheKey)) {
-      return res.status(200).json(productCache.get(cacheKey));
-    }
+    if (productCache.has(cacheKey)) return res.status(200).json(productCache.get(cacheKey));
 
     const products = await Product.find()
       .sort({ createdAt: -1 })
@@ -103,7 +103,6 @@ export const getAllProducts = async (req, res) => {
     };
 
     productCache.set(cacheKey, response);
-
     res.status(200).json(response);
   } catch (error) {
     console.error("Get All Products Error:", error);
@@ -118,9 +117,7 @@ export const getProductById = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid product ID" });
 
     const cacheKey = `product-${id}`;
-    if (productCache.has(cacheKey)) {
-      return res.status(200).json(productCache.get(cacheKey));
-    }
+    if (productCache.has(cacheKey)) return res.status(200).json(productCache.get(cacheKey));
 
     const product = await Product.findById(id)
       .populate("category", "name")
@@ -129,7 +126,6 @@ export const getProductById = async (req, res) => {
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     productCache.set(cacheKey, { product });
-
     res.status(200).json({ product });
   } catch (error) {
     console.error("Get Product By ID Error:", error);
@@ -157,7 +153,7 @@ export const updateProduct = async (req, res) => {
       updatedData.brand = brandDoc._id;
     }
 
-    if (req.file) updatedData.images = await uploadImage(req.file);
+    if (updatedData.image) updatedData.images = await uploadImage(updatedData.image);
 
     const updated = await Product.findByIdAndUpdate(id, updatedData, { new: true, session })
       .populate("category", "name")
@@ -171,7 +167,6 @@ export const updateProduct = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
-
     flushProductCache();
 
     res.status(200).json({ message: "Product updated successfully", updated });
@@ -181,6 +176,7 @@ export const updateProduct = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
 // DELETE Product
 export const deleteProduct = async (req, res) => {
   const session = await mongoose.startSession();
@@ -198,7 +194,6 @@ export const deleteProduct = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
-
     flushProductCache();
 
     res.status(200).json({ message: "Product deleted successfully" });
@@ -209,7 +204,7 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-// SEARCH Products (name, description, category, brand)
+// SEARCH Products
 export const searchProducts = async (req, res) => {
   try {
     const query = req.query.q?.trim();
@@ -222,10 +217,7 @@ export const searchProducts = async (req, res) => {
     const regex = new RegExp(query, "i");
 
     const products = await Product.find({
-      $or: [
-        { name: { $regex: regex } },
-        { description: { $regex: regex } },
-      ],
+      $or: [{ name: { $regex: regex } }, { description: { $regex: regex } }],
     })
       .populate("category", "name")
       .populate("brand", "name")
@@ -234,24 +226,20 @@ export const searchProducts = async (req, res) => {
       .lean();
 
     const total = await Product.countDocuments({
-      $or: [
-        { name: { $regex: regex } },
-        { description: { $regex: regex } },
-      ],
+      $or: [{ name: { $regex: regex } }, { description: { $regex: regex } }],
     });
-
-    const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
       products,
-      pagination: { totalRecords: total, totalPages, currentPage: page, perPage: limit },
+      pagination: { totalRecords: total, totalPages: Math.ceil(total / limit), currentPage: page, perPage: limit },
     });
   } catch (error) {
     console.error("Search Products Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-// GET PRODUCTS BY CATEGORY
+
+// GET Products By Category
 export const getProductsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
@@ -273,11 +261,10 @@ export const getProductsByCategory = async (req, res) => {
       .lean();
 
     const total = await Product.countDocuments({ category: categoryDoc._id });
-    const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
       products,
-      pagination: { totalRecords: total, totalPages, currentPage: page, perPage: limit },
+      pagination: { totalRecords: total, totalPages: Math.ceil(total / limit), currentPage: page, perPage: limit },
     });
   } catch (error) {
     console.error("Get Products By Category Error:", error);
@@ -285,7 +272,7 @@ export const getProductsByCategory = async (req, res) => {
   }
 };
 
-// GET PRODUCTS BY BRAND
+// GET Products By Brand
 export const getProductsByBrand = async (req, res) => {
   try {
     const { brand } = req.params;
@@ -307,15 +294,13 @@ export const getProductsByBrand = async (req, res) => {
       .lean();
 
     const total = await Product.countDocuments({ brand: brandDoc._id });
-    const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
       products,
-      pagination: { totalRecords: total, totalPages, currentPage: page, perPage: limit },
+      pagination: { totalRecords: total, totalPages: Math.ceil(total / limit), currentPage: page, perPage: limit },
     });
   } catch (error) {
     console.error("Get Products By Brand Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
