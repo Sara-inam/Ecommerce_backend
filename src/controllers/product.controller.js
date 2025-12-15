@@ -3,12 +3,22 @@ import Product from "../models/product.model.js";
 import Category from "../models/category.model.js";
 import Brand from "../models/brand.model.js";
 import NodeCache from "node-cache";
+import cloudinary from "../config/cloudinary.js";
 
 // NodeCache with 1 hour TTL
 const productCache = new NodeCache({ stdTTL: 3600 });
 
 // Helper: flush product cache
 const flushProductCache = () => productCache.flushAll();
+
+// Upload image to Cloudinary
+const uploadImage = async (file) => {
+  if (!file) return [];
+  const result = await cloudinary.uploader.upload(file.path, {
+    folder: "products",
+  });
+  return [result.secure_url];
+};
 
 // CREATE Product
 export const createProduct = async (req, res) => {
@@ -17,18 +27,16 @@ export const createProduct = async (req, res) => {
   try {
     const { name, category, brand, price, quantity, description } = req.body;
 
-    if (!name || !category || !brand || !price || !description) {
+    if (!name || !category || !brand || !price || !description)
       return res.status(400).json({ message: "Missing required fields" });
-    }
 
-    // Find category and brand by name
     const categoryDoc = await Category.findOne({ name: category });
     if (!categoryDoc) return res.status(400).json({ message: "Category not found" });
 
     const brandDoc = await Brand.findOne({ name: brand });
     if (!brandDoc) return res.status(400).json({ message: "Brand not found" });
 
-    const images = req.file ? [`/uploads/${req.file.filename}`] : [];
+    const images = await uploadImage(req.file);
 
     const existing = await Product.findOne({ name }).session(session);
     if (existing) {
@@ -149,7 +157,7 @@ export const updateProduct = async (req, res) => {
       updatedData.brand = brandDoc._id;
     }
 
-    if (req.file) updatedData.images = [`/uploads/${req.file.filename}`];
+    if (req.file) updatedData.images = await uploadImage(req.file);
 
     const updated = await Product.findByIdAndUpdate(id, updatedData, { new: true, session })
       .populate("category", "name")
@@ -173,7 +181,6 @@ export const updateProduct = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
-
 // DELETE Product
 export const deleteProduct = async (req, res) => {
   const session = await mongoose.startSession();
