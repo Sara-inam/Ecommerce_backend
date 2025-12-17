@@ -19,25 +19,18 @@ export const createCategory = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { name, description, gender} = req.body;
-    if (req.body.gender) {
-  const allowedGenders = ["Men", "Women", "Kids"];
-  if (!allowedGenders.includes(req.body.gender)) {
-    await session.abortTransaction();
-    session.endSession();
-    return res.status(400).json({ message: "Gender must be men, women, or kids" });
-  }
-}
+    const { name} = req.body;
+    
 
     // Check if category with same name AND gender exists
-    const existing = await Category.findOne({ name, gender }).session(session);
+    const existing = await Category.findOne({ name }).session(session);
     if (existing) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({ message: "Category with this name and gender already exists" });
     }
 
-    const category = await Category.create([{ name, description, gender }], { session });
+    const category = await Category.create([{ name }], { session });
 
     await session.commitTransaction();
     session.endSession();
