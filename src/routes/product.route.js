@@ -8,7 +8,7 @@ import {
   searchProducts,
   getProductsByCategory,
   getProductsByBrand,
-  getProductsByPriceRange
+
 } from "../controllers/product.controller.js";
 import { verifyToken, isAdmin } from "../middleware/auth.middleware.js";
 
@@ -25,6 +25,6 @@ Productrouter.get("/search", verifyToken, searchProducts);
 Productrouter.get("/get/:id", verifyToken, getProductById);
 Productrouter.get("/category/:category", verifyToken, getProductsByCategory);
 Productrouter.get("/brand/:brand", verifyToken, getProductsByBrand);
-Productrouter.get("/price-range", getProductsByPriceRange);
+
 
 export default Productrouter;

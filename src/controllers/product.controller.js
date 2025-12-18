@@ -83,10 +83,29 @@ export const getAllProducts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const cacheKey = `allProducts-${page}-${limit}`;
-    if (productCache.has(cacheKey)) return res.status(200).json(productCache.get(cacheKey));
+    const minPrice = Number(req.query.minPrice);
+    const maxPrice = Number(req.query.maxPrice);
 
-    const products = await Product.find()
+    const filter = {};
+
+    if (!isNaN(minPrice) || !isNaN(maxPrice)) {
+      filter.price = {};
+
+      if (!isNaN(minPrice)) {
+        filter.price.$gte = minPrice;
+      }
+
+      if (!isNaN(maxPrice)) {
+        filter.price.$lte = maxPrice;
+      }
+    }
+
+    const cacheKey = `allProducts-${page}-${limit}-${minPrice}-${maxPrice}`;
+    if (productCache.has(cacheKey)) {
+      return res.status(200).json(productCache.get(cacheKey));
+    }
+
+    const products = await Product.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -94,21 +113,29 @@ export const getAllProducts = async (req, res) => {
       .populate("brand", "name")
       .lean();
 
-    const total = await Product.countDocuments();
-    const totalPages = Math.ceil(total / limit);
+    const total = await Product.countDocuments(filter);
 
     const response = {
       products,
-      pagination: { totalRecords: total, totalPages, currentPage: page, perPage: limit },
+      pagination: {
+        totalRecords: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        perPage: limit,
+      },
     };
 
     productCache.set(cacheKey, response);
     res.status(200).json(response);
   } catch (error) {
     console.error("Get All Products Error:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
+
 
 // GET Product by ID
 export const getProductById = async (req, res) => {
@@ -305,55 +332,4 @@ export const getProductsByBrand = async (req, res) => {
   }
 };
 
-// GET Products By Price Range
-export const getProductsByPriceRange = async (req, res) => {
-  try {
-    const minPrice = Number(req.query.minPrice) || 0;
-    const maxPrice = Number(req.query.maxPrice) || Infinity;
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const cacheKey = `priceRange-${minPrice}-${maxPrice}-${page}-${limit}`;
-    if (productCache.has(cacheKey)) {
-      return res.status(200).json(productCache.get(cacheKey));
-    }
-
-    const filter = {
-      price: {
-        $gte: minPrice,
-        $lte: maxPrice,
-      },
-    };
-
-    const products = await Product.find(filter)
-      .populate("category", "name")
-      .populate("brand", "name")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    const total = await Product.countDocuments(filter);
-
-    const response = {
-      products,
-      pagination: {
-        totalRecords: total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        perPage: limit,
-      },
-    };
-
-    productCache.set(cacheKey, response);
-    res.status(200).json(response);
-  } catch (error) {
-    console.error("Get Products By Price Range Error:", error);
-    res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
-  }
-};
