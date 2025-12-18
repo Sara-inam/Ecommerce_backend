@@ -304,3 +304,56 @@ export const getProductsByBrand = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// GET Products By Price Range
+export const getProductsByPriceRange = async (req, res) => {
+  try {
+    const minPrice = Number(req.query.minPrice) || 0;
+    const maxPrice = Number(req.query.maxPrice) || Infinity;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const cacheKey = `priceRange-${minPrice}-${maxPrice}-${page}-${limit}`;
+    if (productCache.has(cacheKey)) {
+      return res.status(200).json(productCache.get(cacheKey));
+    }
+
+    const filter = {
+      price: {
+        $gte: minPrice,
+        $lte: maxPrice,
+      },
+    };
+
+    const products = await Product.find(filter)
+      .populate("category", "name")
+      .populate("brand", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await Product.countDocuments(filter);
+
+    const response = {
+      products,
+      pagination: {
+        totalRecords: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        perPage: limit,
+      },
+    };
+
+    productCache.set(cacheKey, response);
+    res.status(200).json(response);
+  } catch (error) {
+    console.error("Get Products By Price Range Error:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
