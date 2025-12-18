@@ -4,7 +4,7 @@ import { isAdmin,verifyToken } from '../middleware/auth.middleware.js';
 
 const brandRouter = express.Router();
 brandRouter.post("/create",  verifyToken,isAdmin, createBrand);
-brandRouter.get("/all",  verifyToken, getAllBrands);
+brandRouter.get("/all", getAllBrands);
 brandRouter.put("/update/:id",  verifyToken,isAdmin, updateBrand);
 brandRouter.delete("/delete/:id",  verifyToken,isAdmin, deleteBrand);
 

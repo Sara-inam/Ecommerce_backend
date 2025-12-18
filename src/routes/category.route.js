@@ -4,7 +4,7 @@ import { isAdmin,verifyToken } from '../middleware/auth.middleware.js';
 
 const categoryRouter = express.Router();
 categoryRouter.post("/create",  verifyToken,isAdmin, createCategory);
-categoryRouter.get("/all",  verifyToken, getCategory);
+categoryRouter.get("/all", getCategory);
 categoryRouter.put("/update/:id",  verifyToken,isAdmin, updateCategory);
 categoryRouter.delete("/delete/:id",  verifyToken,isAdmin, deletedCategory);
 
