@@ -39,13 +39,23 @@ export const getUserOrders = async (req, res) => {
 // Get all orders (for admin, optional)
 export const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate("items.product").populate("user", "name email");
+    const orders = await Order.find()
+      .populate("user", "name email") // user details
+      .populate({
+        path: "items.product",       // populate each product in items
+        populate: [
+          { path: "category", select: "name" }, // get category name
+          { path: "brand", select: "name" },    // get brand name
+        ],
+      });
+
     res.status(200).json({ orders });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Update order status (for admin)
 export const updateOrderStatus = async (req, res) => {
